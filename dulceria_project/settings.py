@@ -79,10 +79,13 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'dulceria_db',
-        'USER': 'dulceria',
-        'PASSWORD': 'ventana#123', 
+        'USER': 'root',
+        'PASSWORD': '', 
         'HOST': 'localhost',
-        'PORT': '3308',
+        'PORT': '3306',
+        'OPTIONS': {
+            'sql_mode': 'STRICT_TRANS_TABLES',
+        }
     }
 }
 
@@ -96,6 +99,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8, 
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -135,3 +141,14 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+# 'inicio_gestion' será el 'name' de una URL en tu app 'gestion'
+LOGIN_REDIRECT_URL = 'inicio_gestion' 
+
+# Página a la que se redirige después de cerrar sesión.
+# 'login' es el nombre por defecto de la vista de login de Django.
+LOGOUT_REDIRECT_URL = 'login'
+
+# Página de login (donde se redirige si se intenta acceder a una vista protegida)
+LOGIN_URL = 'login'
