@@ -1,0 +1,17 @@
+{% extends 'gestion/base.html' %} {% block title %}Inicio - Gestión{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h1 class="card-title">¡Bienvenido al Panel de Gestión, {{ user.username }}!</h1>
+                <p class="card-text">
+                    Usa la barra de navegación para comenzar.
+                </p>
+                <a href="{% url 'producto_list' %}" class="btn btn-primary">Gestionar Productos</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
