@@ -7,6 +7,7 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="mainNavbar">
+            
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'inicio_gestion' %}">Inicio</a>
@@ -14,23 +15,39 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'producto_list' %}">Productos</a>
                 </li>
-                
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'proveedor_list' %}">Proveedores</a>
                 </li>
-                
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'inventario_list' %}">Inventario</a>
                 </li>
+                
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Administración
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'user_list' %}">Usuarios</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'categoria_list' %}">Categorías</a></li>
+                        <li><a class="dropdown-item" href="{% url 'marca_list' %}">Marcas</a></li>
+                    </ul>
+                </li>
             </ul>
+
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                         {{ user.username|default:'Usuario' }}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{% url 'logout' %}">Cerrar Sesión</a></li>
-                    </ul>
+                        <li>
+                            <form method="post" action="{% url 'logout' %}" style="margin: 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">Cerrar Sesión</button>
+                            </form>
+                        </li>
+                       </ul>
                 </li>
             </ul>
         </div>
