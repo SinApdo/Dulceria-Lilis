@@ -3,13 +3,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from catalogo.models import Producto
-# --- 1. IMPORTA TODO LO NECESARIO ---
+from catalogo.models import Producto, Categoria, Marca
 from .models import Proveedor, MovimientoInventario
-from .forms import ProductoForm, ProveedorForm, MovimientoForm
+from .forms import (ProductoForm, ProveedorForm, MovimientoForm, CustomUserCreationForm, CustomUserChangeForm, CategoriaForm, MarcaForm )
 from django.db.models import Sum, Count
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from .models import CustomUser
+from django.urls import reverse_lazy
 
 # ----------------------------------------------
 # VISTA DE INICIO
@@ -19,7 +20,7 @@ def inicio_gestion(request):
     return render(request, 'gestion/inicio_gestion.html')
 
 # ----------------------------------------------
-# CRUD DE PRODUCTOS (Ya lo tienes)
+# CRUD DE PRODUCTOS
 # ----------------------------------------------
 @login_required
 def producto_list(request):
@@ -73,7 +74,7 @@ def producto_delete(request, sku):
     return redirect('producto_list')
 
 # ----------------------------------------------
-# CRUD DE PROVEEDORES (Ya lo tienes)
+# CRUD DE PROVEEDORES
 # ----------------------------------------------
 
 @login_required
@@ -172,3 +173,187 @@ def inventario_list(request):
         'movimientos': movimientos
     }
     return render(request, 'gestion/inventario_list.html', context)
+
+    # En: gestion/views.py (al final)
+
+# ----------------------------------------------
+# CRUD DE USUARIOS
+# ----------------------------------------------
+
+@login_required
+def user_list(request):
+    # Solo los 'ROOT' o 'ADMIN' pueden gestionar usuarios
+    if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]:
+        messages.error(request, "No tienes permisos para gestionar usuarios.")
+        return redirect('inicio_gestion')
+
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Usuario creado exitosamente.')
+            return redirect('user_list')
+        else:
+            messages.error(request, 'Error al crear el usuario. Revisa el formulario.')
+    else:
+        form = CustomUserCreationForm()
+
+    # Excluimos al usuario actual de la lista para que no se edite a sí mismo
+    users = CustomUser.objects.exclude(pk=request.user.pk).order_by('username')
+    
+    context = {
+        'form': form,
+        'usuarios': users
+    }
+    return render(request, 'gestion/user_list.html', context)
+
+@login_required
+def user_update(request, pk):
+    if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]:
+        messages.error(request, "No tienes permisos para gestionar usuarios.")
+        return redirect('inicio_gestion')
+
+    user_to_edit = get_object_or_404(CustomUser, pk=pk)
+    
+    if request.method == 'POST':
+        form = CustomUserChangeForm(request.POST, instance=user_to_edit)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Usuario {user_to_edit.username} actualizado.')
+            return redirect('user_list')
+    else:
+        form = CustomUserChangeForm(instance=user_to_edit)
+
+    context = {
+        'form': form,
+        'usuario_editado': user_to_edit
+    }
+    return render(request, 'gestion/user_form_edit.html', context)
+
+@login_required
+def user_delete(request, pk):
+    if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]:
+        messages.error(request, "No tienes permisos para gestionar usuarios.")
+        return redirect('inicio_gestion')
+        
+    user_to_delete = get_object_or_404(CustomUser, pk=pk)
+    
+    # Simple medida de seguridad para no borrar al usuario ROOT
+    if user_to_delete.rol == CustomUser.Roles.ROOT:
+        messages.error(request, 'No se puede eliminar al usuario ROOT.')
+        return redirect('user_list')
+        
+    try:
+        user_to_delete.delete()
+        messages.success(request, f'Usuario {user_to_delete.username} eliminado.')
+    except Exception as e:
+        messages.error(request, f'No se puede eliminar al usuario. Error: {e}')
+    
+    return redirect('user_list')
+
+    # ----------------------------------------------
+# CRUD DE CATEGORÍAS
+# ----------------------------------------------
+
+@login_required
+def categoria_list(request):
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Categoría creada exitosamente.')
+            return redirect('categoria_list')
+    else:
+        form = CategoriaForm()
+
+    categorias = Categoria.objects.all().order_by('nombre')
+    context = {
+        'form': form,
+        'items': categorias, # Usamos 'items' como nombre genérico
+        'titulo': 'Categorías'
+    }
+    # Reutilizaremos un template genérico para Categorías y Marcas
+    return render(request, 'gestion/categoria_marca_list.html', context)
+
+@login_required
+def categoria_update(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST, instance=categoria)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Categoría actualizada.')
+            return redirect('categoria_list')
+    else:
+        form = CategoriaForm(instance=categoria)
+
+    context = {
+        'form': form,
+        'item': categoria,
+        'titulo': 'Categoría',
+        'lista_url': 'categoria_list' # Para el botón "Cancelar"
+    }
+    return render(request, 'gestion/categoria_marca_form_edit.html', context)
+
+@login_required
+def categoria_delete(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    try:
+        categoria.delete()
+        messages.success(request, f'Categoría "{categoria.nombre}" eliminada.')
+    except Exception as e:
+        messages.error(request, 'No se puede eliminar. Es probable que esté siendo usada por uno o más productos.')
+    return redirect('categoria_list')
+
+# ----------------------------------------------
+# CRUD DE MARCAS
+# ----------------------------------------------
+
+@login_required
+def marca_list(request):
+    if request.method == 'POST':
+        form = MarcaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Marca creada exitosamente.')
+            return redirect('marca_list')
+    else:
+        form = MarcaForm()
+
+    marcas = Marca.objects.all().order_by('nombre')
+    context = {
+        'form': form,
+        'items': marcas, # Usamos 'items' como nombre genérico
+        'titulo': 'Marcas'
+    }
+    return render(request, 'gestion/categoria_marca_list.html', context)
+
+@login_required
+def marca_update(request, pk):
+    marca = get_object_or_404(Marca, pk=pk)
+    if request.method == 'POST':
+        form = MarcaForm(request.POST, instance=marca)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Marca actualizada.')
+            return redirect('marca_list')
+    else:
+        form = MarcaForm(instance=marca)
+
+    context = {
+        'form': form,
+        'item': marca,
+        'titulo': 'Marca',
+        'lista_url': 'marca_list' # Para el botón "Cancelar"
+    }
+    return render(request, 'gestion/categoria_marca_form_edit.html', context)
+
+@login_required
+def marca_delete(request, pk):
+    marca = get_object_or_404(Marca, pk=pk)
+    try:
+        marca.delete()
+        messages.success(request, f'Marca "{marca.nombre}" eliminada.')
+    except Exception as e:
+        messages.error(request, 'No se puede eliminar. Es probable que esté siendo usada por uno o más productos.')
+    return redirect('marca_list')

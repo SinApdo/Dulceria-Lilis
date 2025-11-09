@@ -1,0 +1,87 @@
+{% extends 'gestion/base.html' %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">Formulario de Usuario</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {{ form.as_p }}
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Guardar Usuario</button>
+                        <button type="reset" class="btn btn-secondary">Limpiar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Usuarios</h5>
+                <a href="#" class="btn btn-sm btn-outline-success">Exportar a Excel</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Nombre</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>MFA</th>
+                                <th>Último acceso</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for usuario in usuarios %}
+                            <tr>
+                                <th>{{ usuario.username }}</th>
+                                <td>{{ usuario.email }}</td>
+                                <td>{{ usuario.first_name }} {{ usuario.last_name }}</td>
+                                <td>{{ usuario.get_rol_display }}</td>
+                                <td>
+                                    {% if usuario.estado == 'ACTIVO' %}
+                                        <span class="badge text-bg-success">{{ usuario.get_estado_display }}</span>
+                                    {% elif usuario.estado == 'INACTIVO' %}
+                                        <span class="badge text-bg-warning text-dark">{{ usuario.get_estado_display }}</span>
+                                    {% else %}
+                                        <span class="badge text-bg-danger">{{ usuario.get_estado_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ usuario.mfa_habilitado|yesno:"Sí,No" }}</td>
+                                <td>{{ usuario.last_login|date:"Y-m-d H:i"|default:"--" }}</td>
+                                <td>
+                                    <a href="{% url 'user_update' usuario.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                                    
+                                    <form method="post" action="{% url 'user_delete' usuario.pk %}" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a {{ usuario.username }}?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center p-4">No hay otros usuarios registrados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

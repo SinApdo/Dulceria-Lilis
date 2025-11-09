@@ -30,30 +30,76 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-lg-4 mb-4">
+<div classs="row">
+    <div class="col-12 mb-4">
         <div class="card shadow-sm border-0">
             <div class="card-header bg-dark text-white">
                 <h5 class="mb-0">Registrar Movimiento</h5>
             </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    {{ form.as_p }}
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="card-body">
 
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">Guardar Movimiento</button>
+                    <ul class="nav nav-tabs" id="movimientoTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-mov1-tab" data-bs-toggle="tab" data-bs-target="#tab-mov1" type="button" role="tab">1. Datos del movimiento</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-mov2-tab" data-bs-toggle="tab" data-bs-target="#tab-mov2" type="button" role="tab">2. Control avanzado</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-mov3-tab" data-bs-toggle="tab" data-bs-target="#tab-mov3" type="button" role="tab">3. Referencias/Observaciones</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content p-3 border border-top-0" id="movimientoTabContent">
+
+                        <div class="tab-pane fade show active" id="tab-mov1" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-4">{{ form.fecha.label_tag }} {{ form.fecha }}</div>
+                                <div class="col-md-4">{{ form.tipo.label_tag }} {{ form.tipo }}</div>
+                                <div class="col-md-4">{{ form.cantidad.label_tag }} {{ form.cantidad }}</div>
+                                <div class="col-md-4">{{ form.producto.label_tag }} {{ form.producto }}</div>
+                                <div class="col-md-4">{{ form.proveedor.label_tag }} {{ form.proveedor }}</div>
+                                <div class="col-md-4">{{ form.bodega.label_tag }} {{ form.bodega }}</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab-mov2" role="tabpanel">
+                            <p class="small text-muted">Las banderas (lote/serie/vencimiento) normalmente vienen desde la ficha del producto.</p>
+                            <div class="row g-3">
+                                <div class="col-md-4">{{ form.lote.label_tag }} {{ form.lote }}</div>
+                                <div class="col-md-4">{{ form.serie.label_tag }} {{ form.serie }}</div>
+                                <div class="col-md-4">{{ form.fecha_vencimiento.label_tag }} {{ form.fecha_vencimiento }}</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab-mov3" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">{{ form.doc_ref.label_tag }} {{ form.doc_ref }}</div>
+                                <div class="col-md-6">{{ form.motivo.label_tag }} {{ form.motivo }}</div>
+                                <div class="col-12">{{ form.observaciones.label_tag }} {{ form.observaciones }}</div>
+                            </div>
+                        </div>
                     </div>
-                </form>
-            </div>
+                </div>
+
+                <div class="card-footer bg-light text-end">
+                    <button type="submit" class="btn btn-primary">Guardar Movimiento</button>
+                    <button type="reset" class="btn btn-secondary">Limpiar</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <div class="col-lg-8">
+<div class="row">
+    <div class="col-12">
         <div class="card shadow-sm border-0">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Últimos Movimientos</h5>
+                <a href="#" class="btn btn-sm btn-outline-success">Exportar a Excel</a>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -65,7 +111,11 @@
                                 <th>SKU</th>
                                 <th>Producto</th>
                                 <th>Cantidad</th>
+                                <th>Proveedor</th>
+                                <th>Bodega</th>
                                 <th>Doc. Ref.</th>
+                                <th>Lote</th>
+                                <th>Serie</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -80,15 +130,17 @@
                                     {% endif %}
                                 </td>
                                 <th>{{ mov.producto.sku }}</th>
-                                <td>{{ mov.producto.nombre }}</td>
-                                
+                                <td>{{ mov.producto.nombre|truncatechars:25 }}</td>
                                 <td>{{ mov.cantidad }}</td>
-                                
+                                <td>{{ mov.proveedor.razon_social|default:"N/A"|truncatechars:20 }}</td>
+                                <td>{{ mov.bodega|default:"--" }}</td>
                                 <td>{{ mov.doc_ref|default:"--" }}</td>
+                                <td>{{ mov.lote|default:"--" }}</td>
+                                <td>{{ mov.serie|default:"--" }}</td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="6" class="text-center p-4">No hay movimientos registrados.</td>
+                                <td colspan="10" class="text-center p-4">No hay movimientos registrados.</td>
                             </tr>
                             {% endfor %}
                         </tbody>

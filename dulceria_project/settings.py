@@ -142,6 +142,7 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+AUTH_USER_MODEL = 'gestion.CustomUser'
 
 # 'inicio_gestion' será el 'name' de una URL en tu app 'gestion'
 LOGIN_REDIRECT_URL = 'inicio_gestion' 

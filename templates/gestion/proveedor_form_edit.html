@@ -4,23 +4,76 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-10">
         <div class="card shadow-sm border-0">
             <div class="card-header bg-dark text-white">
                 <h5 class="mb-0">Editando Proveedor: {{ proveedor.razon_social }} ({{ proveedor.rut_nif }})</h5>
             </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="card-body">
                     
-                    {{ form.as_p }}
+                    <ul class="nav nav-tabs" id="proveedorTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab" data-bs-target="#tab1" type="button" role="tab">1. Identificación y contacto</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2" type="button" role="tab">2. Dirección y comercial</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3" type="button" role="tab">3. Relación con productos</button>
+                        </li>
+                    </ul>
 
-                    <div class="d-flex justify-content-end gap-2 mt-4">
-                        <a href="{% url 'proveedor_list' %}" class="btn btn-secondary">Cancelar</a>
-                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    <div class="tab-content p-3 border border-top-0" id="proveedorTabContent">
+                        
+                        <div class="tab-pane fade show active" id="tab1" role="tabpanel">
+                            <h6 class="text-primary">Identificación legal y contacto</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">{{ form.rut_nif.label_tag }} {{ form.rut_nif }}</div>
+                                <div class="col-md-6">
+                                    <label>ID (PK)</label>
+                                    <input type="text" value="{{ proveedor.pk }}" class="form-control" readonly>
+                                </div>
+                                <div class="col-md-6">{{ form.razon_social.label_tag }} {{ form.razon_social }}</div>
+                                <div class="col-md-6">{{ form.nombre_fantasia.label_tag }} {{ form.nombre_fantasia }}</div>
+                                <div class="col-md-6">{{ form.email.label_tag }} {{ form.email }}</div>
+                                <div class="col-md-3">{{ form.telefono.label_tag }} {{ form.telefono }}</div>
+                                <div class="col-md-3">{{ form.sitio_web.label_tag }} {{ form.sitio_web }}</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab2" role="tabpanel">
+                            <h6 class="text-primary">Datos de Dirección y Comercial</h6>
+                            <div class="row g-3">
+                                <div class="col-12">{{ form.direccion_legal.label_tag }} {{ form.direccion_legal }}</div>
+                                <div class="col-md-6">{{ form.ciudad.label_tag }} {{ form.ciudad }}</div>
+                                <div class="col-md-6">{{ form.pais.label_tag }} {{ form.pais }}</div>
+                                <div class="col-md-6">{{ form.contacto_comercial_nombre.label_tag }} {{ form.contacto_comercial_nombre }}</div>
+                                <div class="col-md-6">{{ form.contacto_comercial_telefono.label_tag }} {{ form.contacto_comercial_telefono }}</div>
+                                <div class="col-md-6">{{ form.condiciones_pago.label_tag }} {{ form.condiciones_pago }}</div>
+                                <div class="col-md-3">{{ form.moneda.label_tag }} {{ form.moneda }}</div>
+                                <div class="col-md-3">{{ form.estado.label_tag }} {{ form.estado }}</div>
+                                <div class="col-12">{{ form.observaciones.label_tag }} {{ form.observaciones }}</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab3" role="tabpanel">
+                            <h6 class="text-primary">Productos Suministrados</h6>
+                            <p class="small text-muted">Selecciona los productos que este proveedor puede suministrar.</p>
+                            <div class="row g-3">
+                                <div class="col-12">{{ form.productos_suministrados.label_tag }} {{ form.productos_suministrados }}</div>
+                            </div>
+                        </div>
                     </div>
-                </form>
-            </div>
+                </div>
+
+                <div class="card-footer bg-light text-end">
+                    <a href="{% url 'proveedor_list' %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

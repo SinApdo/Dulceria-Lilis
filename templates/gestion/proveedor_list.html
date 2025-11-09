@@ -1,63 +1,121 @@
 {% extends 'gestion/base.html' %}
+{% load static %}
 
 {% block title %}Gestión de Proveedores{% endblock %}
 
 {% block content %}
 <div class="row">
-    <div class="col-lg-4 mb-4">
+    <div class="col-12 mb-4">
         <div class="card shadow-sm border-0">
             <div class="card-header bg-dark text-white">
-                <h5 class="mb-0">Registrar Nuevo Proveedor</h5>
+                <h5 class="mb-0">Formulario de Proveedor</h5>
             </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="card-body">
                     
-                    {{ form.as_p }}
+                    <ul class="nav nav-tabs" id="proveedorTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab" data-bs-target="#tab1" type="button" role="tab">1. Identificación y contacto</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2" type="button" role="tab">2. Dirección y comercial</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3" type="button" role="tab">3. Relación con productos</button>
+                        </li>
+                    </ul>
 
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">Guardar Proveedor</button>
-                        <button type="reset" class="btn btn-secondary">Limpiar</button>
+                    <div class="tab-content p-3 border border-top-0" id="proveedorTabContent">
+                        
+                        <div class="tab-pane fade show active" id="tab1" role="tabpanel">
+                            <h6 class="text-primary">Identificación legal y contacto</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">{{ form.rut_nif.label_tag }} {{ form.rut_nif }}</div>
+                                <div class="col-md-6">
+                                    <label>ID (PK)</label>
+                                    <input type="text" value="Autogenerado" class="form-control" readonly>
+                                </div>
+                                <div class="col-md-6">{{ form.razon_social.label_tag }} {{ form.razon_social }}</div>
+                                <div class="col-md-6">{{ form.nombre_fantasia.label_tag }} {{ form.nombre_fantasia }}</div>
+                                <div class="col-md-6">{{ form.email.label_tag }} {{ form.email }}</div>
+                                <div class="col-md-3">{{ form.telefono.label_tag }} {{ form.telefono }}</div>
+                                <div class="col-md-3">{{ form.sitio_web.label_tag }} {{ form.sitio_web }}</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab2" role="tabpanel">
+                            <h6 class="text-primary">Datos de Dirección y Comercial</h6>
+                            <div class="row g-3">
+                                <div class="col-12">{{ form.direccion_legal.label_tag }} {{ form.direccion_legal }}</div>
+                                <div class="col-md-6">{{ form.ciudad.label_tag }} {{ form.ciudad }}</div>
+                                <div class="col-md-6">{{ form.pais.label_tag }} {{ form.pais }}</div>
+                                <div class="col-md-6">{{ form.contacto_comercial_nombre.label_tag }} {{ form.contacto_comercial_nombre }}</div>
+                                <div class="col-md-6">{{ form.contacto_comercial_telefono.label_tag }} {{ form.contacto_comercial_telefono }}</div>
+                                <div class="col-md-6">{{ form.condiciones_pago.label_tag }} {{ form.condiciones_pago }}</div>
+                                <div class="col-md-3">{{ form.moneda.label_tag }} {{ form.moneda }}</div>
+                                <div class="col-md-3">{{ form.estado.label_tag }} {{ form.estado }}</div>
+                                <div class="col-12">{{ form.observaciones.label_tag }} {{ form.observaciones }}</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab3" role="tabpanel">
+                            <h6 class="text-primary">Productos Suministrados</h6>
+                            <p class="small text-muted">Selecciona los productos que este proveedor puede suministrar.</p>
+                            <div class="row g-3">
+                                <div class="col-12">{{ form.productos_suministrados.label_tag }} {{ form.productos_suministrados }}</div>
+                            </div>
+                        </div>
                     </div>
-                </form>
-            </div>
+                </div>
+
+                <div class="card-footer bg-light text-end">
+                    <button type="submit" class="btn btn-primary">Guardar Proveedor</button>
+                    <button type="reset" class="btn btn-secondary">Limpiar</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <div class="col-lg-8">
+    <div class="col-12">
         <div class="card shadow-sm border-0">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Listado de Proveedores</h5>
+                <a href="#" class="btn btn-sm btn-outline-success">Exportar a Excel</a>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-striped table-hover mb-0 align-middle">
                         <thead class="table-dark">
                             <tr>
-                                <th scope="col">RUT/NIF [cite: 344]</th>
-                                <th scope="col">Razón Social [cite: 345]</th>
-                                <th scope="col">Email [cite: 347]</th>
-                                <th scope="col">Estado [cite: 346]</th>
-                                <th scope="col">Acciones [cite: 343]</th>
+                                <th>RUT/NIF</th>
+                                <th>Razón Social</th>
+                                <th>Estado</th>
+                                <th>Email</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for proveedor in proveedores %}
                             <tr>
-                                <th scope="row">{{ proveedor.rut_nif }}</th>
+                                <th>{{ proveedor.rut_nif }}</th>
                                 <td>{{ proveedor.razon_social }}</td>
-                                <td>{{ proveedor.email }}</td>
                                 <td>
                                     {% if proveedor.estado == 'ACTIVO' %}
-                                        <span class="badge text-bg-success">{{ proveedor.get_estado_display }}</span>
+                                        <span class="badge bg-success">{{ proveedor.estado }}</span>
+                                    {% elif proveedor.estado == 'INACTIVO' %}
+                                        <span class="badge bg-warning text-dark">{{ proveedor.estado }}</span>
+                                    {% elif proveedor.estado == 'BLOQUEADO' %}
+                                        <span class="badge bg-danger">{{ proveedor.estado }}</span>
                                     {% else %}
-                                        <span class="badge text-bg-danger">{{ proveedor.get_estado_display }}</span>
+                                        {{ proveedor.estado }}
                                     {% endif %}
                                 </td>
+                                <td>{{ proveedor.email }}</td>
                                 <td>
                                     <a href="{% url 'proveedor_update' proveedor.rut_nif %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                                    
-                                    <form method="post" action="{% url 'proveedor_delete' proveedor.rut_nif %}" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a {{ proveedor.razon_social }}?');">
+                                    <form method="post" action="{% url 'proveedor_delete' proveedor.rut_nif %}" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar al proveedor {{ proveedor.razon_social }}?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
                                     </form>

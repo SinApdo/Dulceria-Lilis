@@ -1,22 +1,109 @@
-{% extends 'gestion/base.html' %} {% block title %}Editar: {{ producto.nombre }}{% endblock %}
+{% extends 'gestion/base.html' %}
+
+{% block title %}Editar: {{ producto.nombre }}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm border-0">
+    <div class="col-lg-10"> <div class="card shadow-sm border-0">
             <div class="card-header bg-dark text-white">
                 <h5 class="mb-0">Editando Producto: {{ producto.nombre }} ({{ producto.sku }})</h5>
             </div>
-            <div class="card-body">
-                <form method="post" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    {{ form.as_p }}
-                    <div class="d-flex justify-content-end gap-2 mt-4">
-                        <a href="{% url 'producto_list' %}" class="btn btn-secondary">Cancelar</a>
-                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+            
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="card-body">
+                    
+                    <ul class="nav nav-tabs" id="productoTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab" data-bs-target="#tab1" type="button" role="tab">1. Identificación y precios</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2" type="button" role="tab">2. Stock y control</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3" type="button" role="tab">3. Relaciones y derivados</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content p-3 border border-top-0" id="productoTabContent">
+                        
+                        <div class="tab-pane fade show active" id="tab1" role="tabpanel">
+                            <h6 class="text-primary">Identificación</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">{{ form.sku.label_tag }} {{ form.sku }}</div>
+                                <div class="col-md-6">{{ form.ean_upc.label_tag }} {{ form.ean_upc }}</div>
+                                <div class="col-12">{{ form.nombre.label_tag }} {{ form.nombre }}</div>
+                                <div class="col-12">{{ form.descripcion.label_tag }} {{ form.descripcion }}</div>
+                                <div class="col-md-4">{{ form.categoria.label_tag }} {{ form.categoria }}</div>
+                                <div class="col-md-4">{{ form.marca.label_tag }} {{ form.marca }}</div>
+                                <div class="col-md-4">{{ form.modelo.label_tag }} {{ form.modelo }}</div>
+                            </div>
+                            <hr>
+                            <h6 class="text-primary">Unidades y Precios</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">{{ form.uom_compra.label_tag }} {{ form.uom_compra }}</div>
+                                <div class="col-md-6">{{ form.uom_venta.label_tag }} {{ form.uom_venta }}</div>
+                                <div class="col-md-4">{{ form.costo_estandar.label_tag }} {{ form.costo_estandar }}</div>
+                                <div class="col-md-4">{{ form.precio_venta.label_tag }} {{ form.precio_venta }}</div>
+                                <div class="col-md-2">{{ form.impuesto_iva.label_tag }} {{ form.impuesto_iva }}</div>
+                                <div class="col-md-2">{{ form.factor_conversion.label_tag }} {{ form.factor_conversion }}</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab2" role="tabpanel">
+                            <h6 class="text-primary">Stock y Control</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">{{ form.stock_minimo.label_tag }} {{ form.stock_minimo }}</div>
+                                <div class="col-md-4">{{ form.stock_maximo.label_tag }} {{ form.stock_maximo }}</div>
+                                <div class="col-md-4">{{ form.punto_reorden.label_tag }} {{ form.punto_reorden }}</div>
+                            </div>
+                            <hr>
+                            <h6 class="text-primary">Controles Especiales</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4"><div class="form-check">{{ form.perishable }} {{ form.perishable.label_tag }}</div></div>
+                                <div class="col-md-4"><div class="form-check">{{ form.control_por_lote }} {{ form.control_por_lote.label_tag }}</div></div>
+                                <div class="col-md-4"><div class="form-check">{{ form.control_por_serie }} {{ form.control_por_serie.label_tag }}</div></div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab3" role="tabpanel">
+                            <h6 class="text-primary">Relaciones y Soporte</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">{{ form.imagen.label_tag }} {{ form.imagen }}</div>
+                                <div class="col-md-6">{{ form.ficha_tecnica_url.label_tag }} {{ form.ficha_tecnica_url }}</div>
+                            </div>
+                            <hr>
+                            <h6 class="text-primary">Atributos Adicionales</h6>
+                             <div class="row g-3">
+                                <div class="col-md-6"><div class="form-check">{{ form.es_vegano }} {{ form.es_vegano.label_tag }}</div></div>
+                                <div class="col-md-6"><div class="form-check">{{ form.sin_gluten }} {{ form.sin_gluten.label_tag }}</div></div>
+                            </div>
+                            <hr>
+                            <h6 class="text-primary">Derivados (Solo Lectura)</h6>
+                            <p>Estos campos se calculan automáticamente.</p>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label>Stock Actual</label>
+                                    <input type="text" value="{{ form.instance.stock_actual }}" class="form-control" readonly>
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Alerta Bajo Stock</label>
+                                    <input type="text" value="{{ form.instance.alerta_bajo_stock }}" class="form-control" readonly>
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Alerta por Vencer</label>
+                                    <input type="text" value="{{ form.instance.alerta_por_vencer }}" class="form-control" readonly>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </form>
-            </div>
+                </div>
+
+                <div class="card-footer bg-light text-end">
+                    <a href="{% url 'producto_list' %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
