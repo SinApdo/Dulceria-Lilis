@@ -108,3 +108,48 @@
     </div>
 </div>
 {% endblock %}
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- FUNCIÓN 1: CÁLCULO DE IVA EN VIVO ---
+    const precioNetoInput = document.getElementById('id_precio_venta');
+    const ivaInput = document.getElementById('id_impuesto_iva');
+    const precioConIvaInput = document.getElementById('precio_con_iva');
+
+    function calcularIVA() {
+        const precio = parseFloat(precioNetoInput.value) || 0;
+        const iva = parseFloat(ivaInput.value) || 19;
+        if (precio > 0) {
+            const total = Math.round(precio * (1 + (iva / 100)));
+            precioConIvaInput.value = total;
+        } else {
+            precioConIvaInput.value = '';
+        }
+    }
+    precioNetoInput.addEventListener('keyup', calcularIVA);
+    ivaInput.addEventListener('keyup', calcularIVA);
+    calcularIVA(); 
+
+    // --- FUNCIÓN 2: BLOQUEAR NÚMEROS EN EL CAMPO 'NOMBRE' ---
+    const nombreInput = document.getElementById('id_nombre');
+    if (nombreInput) {
+        nombreInput.addEventListener('keydown', function(event) {
+            // Permitir teclas de control
+            if (event.metaKey || event.ctrlKey || event.altKey ||
+                ['Backspace', 'Tab', 'ArrowLeft', 'ArrowRight', 'Delete', 'Home', 'End'].includes(event.key)) {
+                return;
+            }
+            // Permitir espacios
+            if (event.key === ' ') {
+                return;
+            }
+            // Bloquear números
+            if (/\d/.test(event.key)) {
+                event.preventDefault();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

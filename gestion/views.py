@@ -1,5 +1,6 @@
 # En: gestion/views.py
 
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -11,6 +12,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .models import CustomUser
 from django.urls import reverse_lazy
+from openpyxl import Workbook
 
 # ----------------------------------------------
 # VISTA DE INICIO
@@ -357,3 +359,132 @@ def marca_delete(request, pk):
     except Exception as e:
         messages.error(request, 'No se puede eliminar. Es probable que esté siendo usada por uno o más productos.')
     return redirect('marca_list')
+
+# ----------------------------------------------
+# VISTAS DE EXPORTACIÓN A EXCEL
+# ----------------------------------------------
+
+# --- PRODUCTOS---
+@login_required
+def exportar_productos_excel(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Productos"
+    ws.append(['SKU', 'Nombre', 'Categoría', 'Stock', 'Precio Neto', 'Precio c/IVA'])
+    
+    productos = Producto.objects.all().order_by('sku')
+    for p in productos:
+        categoria = p.categoria.nombre if p.categoria else "N/A"
+        ws.append([p.sku, p.nombre, categoria, p.stock_actual, p.precio_venta, p.precio_venta_con_iva])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="listado_productos.xlsx"'
+    wb.save(response)
+    return response
+
+# --- PROVEEDORES---
+@login_required
+def exportar_proveedores_excel(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Proveedores"
+    ws.append(['RUT/NIF', 'Razón Social', 'Email', 'Teléfono', 'Estado', 'País'])
+    
+    proveedores = Proveedor.objects.all().order_by('razon_social')
+    for p in proveedores:
+        ws.append([p.rut_nif, p.razon_social, p.email, p.telefono, p.get_estado_display(), p.pais])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="listado_proveedores.xlsx"'
+    wb.save(response)
+    return response
+
+# --- INVENTARIO---
+@login_required
+def exportar_inventario_excel(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Movimientos"
+    ws.append(['Fecha', 'Tipo', 'SKU', 'Producto', 'Cantidad', 'Proveedor', 'Bodega', 'Doc. Ref.', 'Lote'])
+    
+    movimientos = MovimientoInventario.objects.all().order_by('-fecha').select_related('producto', 'proveedor')
+    for m in movimientos:
+        producto_sku = m.producto.sku if m.producto else "N/A"
+        producto_nombre = m.producto.nombre if m.producto else "N/A"
+        proveedor_nombre = m.proveedor.razon_social if m.proveedor else "N/A"
+        
+        ws.append([
+            m.fecha.strftime('%Y-%m-%d %H:%M'), 
+            m.get_tipo_display(), 
+            producto_sku,
+            producto_nombre,
+            m.cantidad, 
+            proveedor_nombre,
+            m.bodega,
+            m.doc_ref,
+            m.lote
+        ])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="listado_inventario.xlsx"'
+    wb.save(response)
+    return response
+
+# --- USUARIOS---
+@login_required
+def exportar_usuarios_excel(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Usuarios"
+    ws.append(['Username', 'Email', 'Nombre', 'Apellido', 'Rol', 'Estado', 'Último Acceso'])
+    
+    usuarios = CustomUser.objects.all().order_by('username')
+    for u in usuarios:
+        ws.append([
+            u.username, 
+            u.email, 
+            u.first_name, 
+            u.last_name, 
+            u.get_rol_display(), 
+            u.get_estado_display(),
+            u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else "N/A"
+        ])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="listado_usuarios.xlsx"'
+    wb.save(response)
+    return response
+
+# --- CATEGORÍAS---
+@login_required
+def exportar_categorias_excel(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Categorías"
+    ws.append(['Nombre'])
+    
+    items = Categoria.objects.all().order_by('nombre')
+    for item in items:
+        ws.append([item.nombre])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="listado_categorias.xlsx"'
+    wb.save(response)
+    return response
+
+# --- MARCAS ---
+@login_required
+def exportar_marcas_excel(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Marcas"
+    ws.append(['Nombre'])
+    
+    items = Marca.objects.all().order_by('nombre')
+    for item in items:
+        ws.append([item.nombre])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="listado_marcas.xlsx"'
+    wb.save(response)
+    return response

@@ -45,9 +45,15 @@
                             <div class="row g-3">
                                 <div class="col-md-6">{{ form.uom_compra.label_tag }} {{ form.uom_compra }}</div>
                                 <div class="col-md-6">{{ form.uom_venta.label_tag }} {{ form.uom_venta }}</div>
-                                <div class="col-md-4">{{ form.costo_estandar.label_tag }} {{ form.costo_estandar }}</div>
-                                <div class="col-md-4">{{ form.precio_venta.label_tag }} {{ form.precio_venta }}</div>
+                                <div class="col-md-3">{{ form.costo_estandar.label_tag }} {{ form.costo_estandar }}</div>
+                                <div class="col-md-3">{{ form.precio_venta.label_tag }} {{ form.precio_venta }}</div>
                                 <div class="col-md-2">{{ form.impuesto_iva.label_tag }} {{ form.impuesto_iva }}</div>
+                                
+                                <div class="col-md-2">
+                                    <label for="precio_con_iva">Precio Venta c/IVA</label>
+                                    <input type="number" id="precio_con_iva" class="form-control" readonly>
+                                </div>
+                                
                                 <div class="col-md-2">{{ form.factor_conversion.label_tag }} {{ form.factor_conversion }}</div>
                             </div>
                         </div>
@@ -113,11 +119,18 @@
 
     <div class="col-12">
         <div class="card shadow-sm border-0">
+            
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Listado de Productos</h5>
-                <a href="#" class="btn btn-sm btn-outline-success">Exportar a Excel</a>
+                <a href="{% url 'exportar_productos_excel' %}" class="btn btn-sm btn-outline-success">Exportar a Excel</a>
             </div>
-            <div class="card-body p-0">
+
+            <div class="card-body">
+                
+                <div class="mb-3">
+                    <input type="text" id="search-input" class="form-control" placeholder="Buscar por SKU o Nombre...">
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-striped table-hover mb-0 align-middle">
                         <thead class="table-dark">
@@ -130,7 +143,7 @@
                                 <th>Acciones</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="product-table-body">
                             {% for producto in productos %}
                             <tr>
                                 <th>{{ producto.sku }}</th>
@@ -158,4 +171,72 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- FUNCIÓN 1: BÚSQUEDA EN VIVO ---
+    const searchInput = document.getElementById('search-input');
+    const tableBody = document.getElementById('product-table-body');
+    const tableRows = tableBody.getElementsByTagName('tr');
+
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase();
+        for (let i = 0; i < tableRows.length; i++) {
+            const row = tableRows[i];
+            const skuCell = row.cells[0];
+            const nombreCell = row.cells[1];
+            if (skuCell && nombreCell) {
+                const skuText = skuCell.textContent || skuCell.innerText;
+                const nombreText = nombreCell.textContent || nombreCell.innerText;
+                if (skuText.toLowerCase().indexOf(filter) > -1 || nombreText.toLowerCase().indexOf(filter) > -1) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            }
+        }
+    });
+
+    // --- FUNCIÓN 2: CÁLCULO DE IVA EN VIVO ---
+    const precioNetoInput = document.getElementById('id_precio_venta');
+    const ivaInput = document.getElementById('id_impuesto_iva');
+    const precioConIvaInput = document.getElementById('precio_con_iva');
+
+    function calcularIVA() {
+        const precio = parseFloat(precioNetoInput.value) || 0;
+        const iva = parseFloat(ivaInput.value) || 19;
+        if (precio > 0) {
+            const total = Math.round(precio * (1 + (iva / 100)));
+            precioConIvaInput.value = total;
+        } else {
+            precioConIvaInput.value = '';
+        }
+    }
+    precioNetoInput.addEventListener('keyup', calcularIVA);
+    ivaInput.addEventListener('keyup', calcularIVA);
+    calcularIVA(); 
+
+    // --- FUNCIÓN 3: BLOQUEAR NÚMEROS EN EL CAMPO 'NOMBRE' ---
+    const nombreInput = document.getElementById('id_nombre');
+    if (nombreInput) {
+        nombreInput.addEventListener('keydown', function(event) {
+            // Permitir teclas de control
+            if (event.metaKey || event.ctrlKey || event.altKey ||
+                ['Backspace', 'Tab', 'ArrowLeft', 'ArrowRight', 'Delete', 'Home', 'End'].includes(event.key)) {
+                return;
+            }
+            // Permitir espacios
+            if (event.key === ' ') {
+                return;
+            }
+            // Bloquear números
+            if (/\d/.test(event.key)) {
+                event.preventDefault();
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

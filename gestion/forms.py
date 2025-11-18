@@ -6,9 +6,10 @@ from django.core.exceptions import ValidationError
 from catalogo.models import Producto, Categoria, Marca
 from .models import Proveedor, MovimientoInventario, CustomUser
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+import re
 
 # -----------------------------------------------------------------
-#FORMULARIO PARA CATEGORÍAS (¡AÑADE ESTO!)
+#FORMULARIO PARA CATEGORÍAS
 # -----------------------------------------------------------------
 class CategoriaForm(forms.ModelForm):
     class Meta:
@@ -20,7 +21,7 @@ class CategoriaForm(forms.ModelForm):
         self.fields['nombre'].widget.attrs.update({'class': 'form-control'})
 
 # -----------------------------------------------------------------
-# FORMULARIO PARA MARCAS (¡AÑADE ESTO!)
+# FORMULARIO PARA MARCAS
 # -----------------------------------------------------------------
 class MarcaForm(forms.ModelForm):
     class Meta:
@@ -75,33 +76,65 @@ class CustomUserChangeForm(UserChangeForm):
 
 # --- Formulario de Producto (ACTUALIZADO) ---
 class ProductoForm(forms.ModelForm):
+    
+    # --- 1. DEFINIMOS LAS OPCIONES DE UNIDAD DE MEDIDA ---
+    UOM_CHOICES = [
+        ('', 'Seleccione...'),
+        ('UN', 'Unidad'),
+        ('CAJA', 'Caja'),
+        ('PAQ', 'Paquete'),
+        ('KG', 'Kilos'),
+        ('G', 'Gramos'),
+        ('L', 'Litros'),
+        ('ML', 'Mililitros'),
+    ]
+
+    # --- 2. REEMPLAZAMOS LOS CAMPOS DE TEXTO POR DROPDOWNS ---
+    uom_compra = forms.ChoiceField(
+        choices=UOM_CHOICES, 
+        required=False, 
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="UOM Compra"
+    )
+    uom_venta = forms.ChoiceField(
+        choices=UOM_CHOICES, 
+        required=False, 
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="UOM Venta"
+    )
+
     class Meta:
         model = Producto
-        # --- LISTA DE CAMPOS ACTUALIZADA ---
         fields = [
-            # Tab 1
             'sku', 'ean_upc', 'nombre', 'descripcion', 
             'categoria', 'marca', 'modelo',
             'uom_compra', 'uom_venta', 'factor_conversion',
             'costo_estandar', 'precio_venta', 'impuesto_iva',
-            # Tab 2
             'stock_minimo', 'stock_maximo', 'punto_reorden',
             'perishable', 'control_por_lote', 'control_por_serie',
-            # Tab 3
             'imagen', 'ficha_tecnica_url',
-            # Atributos (los ponemos en una tab)
             'es_vegano', 'sin_gluten',
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Bucle de estilos (ya está corregido para checkboxes)
+        # --- 3. BUCLE DE ESTILOS ACTUALIZADO ---
         for field_name, field in self.fields.items():
+            
+            # Si es un Checkbox
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.setdefault('class', 'form-check-input')
+            
+            # Si es un Dropdown (Select)
+            elif isinstance(field.widget, forms.Select):
+                field.widget.attrs.setdefault('class', 'form-select')
+
+            # Si es un Archivo (Imagen, Ficha)
             elif isinstance(field.widget, (forms.ClearableFileInput, forms.FileInput)):
                 field.widget.attrs.setdefault('class', 'form-control')
+            
+            # Para todos los demás (text, number, etc.)
             else:
                 field.widget.attrs.setdefault('class', 'form-control')
 
@@ -120,8 +153,15 @@ class ProductoForm(forms.ModelForm):
             if stock_maximo < stock_minimo:
                 raise ValidationError("Error: El Stock Máximo no puede ser menor que el Stock Mínimo.")
         return cleaned_data
+        
+    def clean_nombre(self):
+        nombre = self.cleaned_data.get('nombre')
+        # Esta expresión regular busca cualquier cosa que NO sea una letra (a-z, A-Z) o un espacio
+        if re.search(r'[^a-zA-Z\s]', nombre):
+            raise ValidationError("El nombre solo puede contener letras y espacios.")
+        return nombre
 
-# --- Formulario de Proveedor (ACTUALIZADO) ---
+# --- Formulario de Proveedor ---
 class ProveedorForm(forms.ModelForm):
     # products = forms.ModelMultipleChoiceField(
     #     queryset=Producto.objects.all(),

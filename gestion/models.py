@@ -5,7 +5,7 @@ from django.contrib.auth.models import AbstractUser # <-- AÃ‘ADE ESTA IMPORTACIÃ
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from catalogo.models import Producto
-
+from rutificador import Rut
 # -----------------------------------------------------------------
 # 1. MODELO DE USUARIO PERSONALIZADO
 # -----------------------------------------------------------------
