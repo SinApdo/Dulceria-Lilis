@@ -4,7 +4,7 @@ from django import forms
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from catalogo.models import Producto, Categoria, Marca
-from .models import Proveedor, MovimientoInventario, CustomUser
+from .models import Proveedor, MovimientoInventario, CustomUser, Bodega
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 import re
 
@@ -43,6 +43,7 @@ class CustomUserCreationForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['email'].required = True
         for field_name, field in self.fields.items():
             # Aplicamos estilos de Bootstrap
             if isinstance(field.widget, forms.CheckboxInput):
@@ -115,10 +116,30 @@ class ProductoForm(forms.ModelForm):
             'imagen', 'ficha_tecnica_url',
             'es_vegano', 'sin_gluten',
         ]
+        
+        widgets = {
+            'imagen': forms.ClearableFileInput(
+                attrs={
+                    'class': 'form-control',
+                    'accept': 'image/png, image/jpeg, image/jpg' # Solo imágenes
+                }
+            ),
+            'ficha_tecnica_url': forms.ClearableFileInput(
+                attrs={
+                    'class': 'form-control',
+                    'accept': '.pdf, .doc, .docx, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document' # Solo PDF y Word
+                }
+            )
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
+        self.fields['categoria'].required = True
+        self.fields['uom_compra'].required = True
+        self.fields['uom_venta'].required = True
+        
+
         # --- 3. BUCLE DE ESTILOS ACTUALIZADO ---
         for field_name, field in self.fields.items():
             
@@ -163,13 +184,7 @@ class ProductoForm(forms.ModelForm):
 
 # --- Formulario de Proveedor ---
 class ProveedorForm(forms.ModelForm):
-    # products = forms.ModelMultipleChoiceField(
-    #     queryset=Producto.objects.all(),
-    #     widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
-    #     required=False,
-    #     label="Productos Suministrados"
-    # )
-
+    
     class Meta:
         model = Proveedor
         # --- LISTA DE CAMPOS ACTUALIZADA ---
@@ -187,6 +202,7 @@ class ProveedorForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['email'].required = True
         for field_name, field in self.fields.items():
             field.widget.attrs.setdefault('class', 'form-control')
         
@@ -200,9 +216,21 @@ class ProveedorForm(forms.ModelForm):
             # Puedes usar 'forms.SelectMultiple' para un mejor control visual
             self.fields['productos_suministrados'].widget = forms.SelectMultiple(attrs={'class': 'form-control'})
 
-# --- Formulario de Movimiento (Sin cambios) ---
+
+# --- NUEVO FORMULARIO PARA BODEGAS ---
+class BodegaForm(forms.ModelForm):
+    class Meta:
+        model = Bodega
+        fields = ['nombre', 'ubicacion']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['nombre'].widget.attrs.update({'class': 'form-control'})
+        self.fields['ubicacion'].widget.attrs.update({'class': 'form-control'})            
+
 class MovimientoForm(forms.ModelForm):
     
+    # ... (producto y proveedor igual que antes) ...
     producto = forms.ModelChoiceField(
         queryset=Producto.objects.all(),
         widget=forms.Select(attrs={'class': 'form-select'})
@@ -217,42 +245,36 @@ class MovimientoForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     
+    # --- CAMBIO: Bodega ahora es un Dropdown ---
+    bodega = forms.ModelChoiceField(
+        queryset=Bodega.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Bodega"
+    )
+
     class Meta:
         model = MovimientoInventario
-        
-        # --- CAMPOS REORDENADOS POR PESTAÑA ---
         fields = [
-            # Pestaña 1
-            'fecha', 'tipo', 'cantidad', 
-            'producto', 'proveedor', 'bodega', 
-            # Pestaña 2
-            'lote', 'serie', 'fecha_vencimiento', 
-            # Pestaña 3
-            'doc_ref', 'motivo', 'observaciones' 
+            'producto', 'tipo', 'cantidad', 
+            'proveedor', 'bodega', 'doc_ref',
+            'lote', 'serie', 'fecha_vencimiento', 'observaciones', 'motivo', 'fecha'
         ]
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        # --- BUCLE DE ESTILOS ACTUALIZADO ---
         for field_name, field in self.fields.items():
             if not field.widget.attrs.get('class'):
                  field.widget.attrs.setdefault('class', 'form-control')
             
-            # Ajustamos campos opcionales
             if field_name in ['proveedor', 'doc_ref', 'lote', 'serie', 'fecha_vencimiento', 'observaciones', 'motivo']:
                 field.required = False
             
-            # Widgets de Fecha
             if field_name == 'fecha_vencimiento':
                 field.widget = forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
-            if field_name == 'fecha':
-                # Usamos datetime-local para la fecha y hora del movimiento
-                field.widget = forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'})
-                field.initial = timezone.now().strftime('%Y-%m-%dT%H:%M') # Valor inicial
             
-            if field_name == 'bodega':
-                field.initial = 'BOD-CENTRAL'
+            if field_name == 'fecha':
+                field.widget = forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'})
+                field.initial = timezone.now().strftime('%Y-%m-%dT%H:%M')
     
     def clean_cantidad(self):
         cantidad = self.cleaned_data.get('cantidad')

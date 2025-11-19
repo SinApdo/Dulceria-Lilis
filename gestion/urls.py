@@ -40,4 +40,9 @@ urlpatterns = [
     path('marcas/eliminar/<int:pk>/', views.marca_delete, name='marca_delete'),
     path('marcas/exportar/', views.exportar_marcas_excel, name='exportar_marcas_excel'),
 
+    # CRUD de Bodegas
+    path('bodegas/', views.bodega_list, name='bodega_list'),
+    path('bodegas/editar/<int:pk>/', views.bodega_update, name='bodega_update'),
+    path('bodegas/eliminar/<int:pk>/', views.bodega_delete, name='bodega_delete'),
+
 ]

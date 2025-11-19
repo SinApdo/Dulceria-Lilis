@@ -79,8 +79,20 @@ class Proveedor(models.Model):
     def __str__(self):
         return f"{self.razon_social} ({self.rut_nif})"
 
+
 # -----------------------------------------------------------------
-# 3. MODELO MOVIMIENTO INVENTARIO
+#  MODELO MOVIMIENTO BODEGA
+# -----------------------------------------------------------------
+
+class Bodega(models.Model):
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre de Bodega")
+    ubicacion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Ubicación/Dirección")
+    
+    def __str__(self):
+        return self.nombre
+
+# -----------------------------------------------------------------
+#  MODELO MOVIMIENTO INVENTARIO
 # -----------------------------------------------------------------
 class MovimientoInventario(models.Model):
     
@@ -97,10 +109,9 @@ class MovimientoInventario(models.Model):
     tipo = models.CharField(max_length=4, choices=TipoMovimiento.choices, verbose_name="Tipo de Movimiento")
     cantidad = models.PositiveIntegerField(verbose_name="Cantidad")
     
-    # Este campo ya era editable, está perfecto para la Pestaña 1
     fecha = models.DateTimeField(default=timezone.now, verbose_name="Fecha")
 
-    bodega = models.CharField(max_length=100, default="BOD-CENTRAL", verbose_name="Bodega")
+    bodega = models.ForeignKey(Bodega, on_delete=models.PROTECT, verbose_name="Bodega")
     
     # --- Campos de la Pestaña 2 ---
     lote = models.CharField(max_length=100, blank=True, null=True, verbose_name="Lote")

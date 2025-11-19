@@ -4,15 +4,38 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from catalogo.models import Producto, Categoria, Marca
-from .models import Proveedor, MovimientoInventario
-from .forms import (ProductoForm, ProveedorForm, MovimientoForm, CustomUserCreationForm, CustomUserChangeForm, CategoriaForm, MarcaForm )
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
+from django.core.paginator import Paginator
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from .models import CustomUser
-from django.urls import reverse_lazy
+from django.core.mail import send_mail
+from django.conf import settings
 from openpyxl import Workbook
+
+# Modelos
+from catalogo.models import Producto, Categoria, Marca
+from .models import Proveedor, MovimientoInventario, CustomUser, Bodega
+
+# Formularios
+from .forms import (
+    ProductoForm, ProveedorForm, MovimientoForm, 
+    CustomUserCreationForm, CustomUserChangeForm, 
+    CategoriaForm, MarcaForm, BodegaForm
+)
+
+# Utilidad para contraseñas (Crea gestion/utils.py si no existe con la función generar_password_robusta)
+try:
+    from .utils import generar_password_robusta
+except ImportError:
+    # Fallback por si no tienes el archivo utils.py
+    import secrets
+    import string
+    def generar_password_robusta():
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        while True:
+            password = ''.join(secrets.choice(alphabet) for i in range(10))
+            if (any(c.islower() for c in password) and any(c.isupper() for c in password) and any(c.isdigit() for c in password)):
+                return password
 
 # ----------------------------------------------
 # VISTA DE INICIO
@@ -37,18 +60,23 @@ def producto_list(request):
     else:
         form = ProductoForm()
 
-    productos = Producto.objects.all().order_by('nombre')
+    # Búsqueda y Paginación
+    query = request.GET.get('q', '')
+    productos_list = Producto.objects.all().order_by('nombre')
     
-    context = {
-        'form': form,
-        'productos': productos
-    }
+    if query:
+        productos_list = productos_list.filter(Q(nombre__icontains=query) | Q(sku__icontains=query))
+
+    paginator = Paginator(productos_list, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {'form': form, 'page_obj': page_obj, 'query': query}
     return render(request, 'gestion/producto_list.html', context)
 
 @login_required
 def producto_update(request, sku):
     producto = get_object_or_404(Producto, sku=sku)
-    
     if request.method == 'POST':
         form = ProductoForm(request.POST, request.FILES, instance=producto)
         if form.is_valid():
@@ -57,12 +85,7 @@ def producto_update(request, sku):
             return redirect('producto_list')
     else:
         form = ProductoForm(instance=producto)
-
-    context = {
-        'form': form,
-        'producto': producto
-    }
-    return render(request, 'gestion/producto_form_edit.html', context)
+    return render(request, 'gestion/producto_form_edit.html', {'form': form, 'producto': producto})
 
 @login_required
 def producto_delete(request, sku):
@@ -71,14 +94,12 @@ def producto_delete(request, sku):
         producto.delete()
         messages.success(request, f'Producto {sku} eliminado.')
     except Exception as e:
-        messages.error(request, f'No se puede eliminar el producto. Error: {e}')
-    
+        messages.error(request, f'No se puede eliminar. Error: {e}')
     return redirect('producto_list')
 
 # ----------------------------------------------
 # CRUD DE PROVEEDORES
 # ----------------------------------------------
-
 @login_required
 def proveedor_list(request):
     if request.method == 'POST':
@@ -88,103 +109,48 @@ def proveedor_list(request):
             messages.success(request, 'Proveedor creado exitosamente.')
             return redirect('proveedor_list')
         else:
-            messages.error(request, 'Error al crear el proveedor. Revisa el formulario.')
+            messages.error(request, 'Error al crear el proveedor.')
     else:
         form = ProveedorForm()
 
-    proveedores = Proveedor.objects.all().order_by('razon_social')
-    
-    context = {
-        'form': form,
-        'proveedores': proveedores
-    }
+    query = request.GET.get('q', '')
+    proveedores_list = Proveedor.objects.all().order_by('razon_social')
+    if query:
+        proveedores_list = proveedores_list.filter(Q(razon_social__icontains=query) | Q(rut_nif__icontains=query))
+
+    # Usamos 'proveedores' en el contexto para simplificar si no usas paginator aquí,
+    # pero idealmente usa Paginator igual que en productos.
+    context = {'form': form, 'proveedores': proveedores_list, 'query': query}
     return render(request, 'gestion/proveedor_list.html', context)
 
 @login_required
 def proveedor_update(request, rut_nif):
     proveedor = get_object_or_404(Proveedor, rut_nif=rut_nif)
-    
     if request.method == 'POST':
         form = ProveedorForm(request.POST, instance=proveedor)
         if form.is_valid():
             form.save()
-            messages.success(request, f'Proveedor {rut_nif} actualizado.')
+            messages.success(request, 'Proveedor actualizado.')
             return redirect('proveedor_list')
     else:
         form = ProveedorForm(instance=proveedor)
-
-    context = {
-        'form': form,
-        'proveedor': proveedor
-    }
-    return render(request, 'gestion/proveedor_form_edit.html', context)
+    return render(request, 'gestion/proveedor_form_edit.html', {'form': form, 'proveedor': proveedor})
 
 @login_required
 def proveedor_delete(request, rut_nif):
     proveedor = get_object_or_404(Proveedor, rut_nif=rut_nif)
     try:
         proveedor.delete()
-        messages.success(request, f'Proveedor {rut_nif} eliminado.')
-    except Exception as e:
-        messages.error(request, f'No se puede eliminar el proveedor. Puede tener registros asociados. Error: {e}')
-    
+        messages.success(request, 'Proveedor eliminado.')
+    except:
+        messages.error(request, 'No se puede eliminar, tiene datos asociados.')
     return redirect('proveedor_list')
 
-
 # ----------------------------------------------
-# --- 2. AÑADE ESTE BLOQUE QUE TE FALTA ---
-# VISTA DE INVENTARIO
+# CRUD DE USUARIOS (Solo Admin/Root)
 # ----------------------------------------------
-
-@login_required
-def inventario_list(request):
-    # Lógica del Formulario de Registro
-    if request.method == 'POST':
-        form = MovimientoForm(request.POST)
-        if form.is_valid():
-            try:
-                # El método .save() de nuestro modelo se encargará
-                # de actualizar el stock y validar
-                form.save()
-                messages.success(request, 'Movimiento registrado y stock actualizado.')
-                return redirect('inventario_list')
-            except ValidationError as e:
-                # Capturamos el error de "Stock insuficiente" del modelo
-                messages.error(request, f"Error: {e.args[0]}")
-            except Exception as e:
-                messages.error(request, f"Error inesperado al guardar: {e}")
-        else:
-            messages.error(request, 'Error en el formulario. Revisa los datos.')
-    else:
-        form = MovimientoForm()
-
-    # Lógica de los KPIs (Mockup pág. 11)
-    today = timezone.now().date()
-    kpis = {
-        'movimientos_hoy': MovimientoInventario.objects.filter(fecha__date=today).count(), 
-        'stock_total': Producto.objects.aggregate(total=Sum('stock_actual'))['total'] or 0, 
-        'productos_unicos': Producto.objects.count() 
-    }
-
-    # Lógica de la Tabla "Movimientos"
-    movimientos = MovimientoInventario.objects.all().select_related('producto', 'proveedor').order_by('-fecha')[:50] # (Mostramos los 50 más nuevos)
-    
-    context = {
-        'form': form,
-        'kpis': kpis,
-        'movimientos': movimientos
-    }
-    return render(request, 'gestion/inventario_list.html', context)
-
-    # En: gestion/views.py (al final)
-
-# ----------------------------------------------
-# CRUD DE USUARIOS
-# ----------------------------------------------
-
 @login_required
 def user_list(request):
-    # Solo los 'ROOT' o 'ADMIN' pueden gestionar usuarios
     if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]:
         messages.error(request, "No tienes permisos para gestionar usuarios.")
         return redirect('inicio_gestion')
@@ -192,299 +158,311 @@ def user_list(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Usuario creado exitosamente.')
+            user = form.save(commit=False)
+            temp_pass = generar_password_robusta()
+            user.set_password(temp_pass)
+            user.debe_cambiar_clave = True
+            user.save()
+            
+            # Enviar correo (consola)
+            send_mail(
+                'Bienvenido - Clave Temporal',
+                f'Usuario: {user.username}\nClave: {temp_pass}',
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=True
+            )
+            messages.success(request, f'Usuario creado. Clave enviada al correo.')
             return redirect('user_list')
         else:
-            messages.error(request, 'Error al crear el usuario. Revisa el formulario.')
+            messages.error(request, 'Error al crear usuario.')
     else:
         form = CustomUserCreationForm()
 
-    # Excluimos al usuario actual de la lista para que no se edite a sí mismo
+    query = request.GET.get('q', '')
     users = CustomUser.objects.exclude(pk=request.user.pk).order_by('username')
-    
-    context = {
-        'form': form,
-        'usuarios': users
-    }
-    return render(request, 'gestion/user_list.html', context)
+    if query:
+        users = users.filter(username__icontains=query)
+
+    return render(request, 'gestion/user_list.html', {'form': form, 'usuarios': users})
 
 @login_required
 def user_update(request, pk):
     if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]:
-        messages.error(request, "No tienes permisos para gestionar usuarios.")
         return redirect('inicio_gestion')
-
     user_to_edit = get_object_or_404(CustomUser, pk=pk)
-    
     if request.method == 'POST':
         form = CustomUserChangeForm(request.POST, instance=user_to_edit)
         if form.is_valid():
             form.save()
-            messages.success(request, f'Usuario {user_to_edit.username} actualizado.')
+            messages.success(request, 'Usuario actualizado.')
             return redirect('user_list')
     else:
         form = CustomUserChangeForm(instance=user_to_edit)
-
-    context = {
-        'form': form,
-        'usuario_editado': user_to_edit
-    }
-    return render(request, 'gestion/user_form_edit.html', context)
+    return render(request, 'gestion/user_form_edit.html', {'form': form, 'usuario_editado': user_to_edit})
 
 @login_required
 def user_delete(request, pk):
     if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]:
-        messages.error(request, "No tienes permisos para gestionar usuarios.")
         return redirect('inicio_gestion')
-        
     user_to_delete = get_object_or_404(CustomUser, pk=pk)
-    
-    # Simple medida de seguridad para no borrar al usuario ROOT
     if user_to_delete.rol == CustomUser.Roles.ROOT:
-        messages.error(request, 'No se puede eliminar al usuario ROOT.')
-        return redirect('user_list')
-        
-    try:
+        messages.error(request, 'No se puede eliminar al ROOT.')
+    else:
         user_to_delete.delete()
-        messages.success(request, f'Usuario {user_to_delete.username} eliminado.')
-    except Exception as e:
-        messages.error(request, f'No se puede eliminar al usuario. Error: {e}')
-    
+        messages.success(request, 'Usuario eliminado.')
     return redirect('user_list')
 
-    # ----------------------------------------------
+# ----------------------------------------------
 # CRUD DE CATEGORÍAS
 # ----------------------------------------------
-
 @login_required
 def categoria_list(request):
     if request.method == 'POST':
         form = CategoriaForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Categoría creada exitosamente.')
+            messages.success(request, 'Categoría creada.')
             return redirect('categoria_list')
     else:
         form = CategoriaForm()
-
-    categorias = Categoria.objects.all().order_by('nombre')
-    context = {
-        'form': form,
-        'items': categorias, # Usamos 'items' como nombre genérico
-        'titulo': 'Categorías'
-    }
-    # Reutilizaremos un template genérico para Categorías y Marcas
-    return render(request, 'gestion/categoria_marca_list.html', context)
+    
+    query = request.GET.get('q', '')
+    items = Categoria.objects.all().order_by('nombre')
+    if query: items = items.filter(nombre__icontains=query)
+    
+    return render(request, 'gestion/categoria_marca_list.html', {'form': form, 'items': items, 'titulo': 'Categorías'})
 
 @login_required
 def categoria_update(request, pk):
-    categoria = get_object_or_404(Categoria, pk=pk)
+    item = get_object_or_404(Categoria, pk=pk)
     if request.method == 'POST':
-        form = CategoriaForm(request.POST, instance=categoria)
+        form = CategoriaForm(request.POST, instance=item)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Categoría actualizada.')
             return redirect('categoria_list')
     else:
-        form = CategoriaForm(instance=categoria)
-
-    context = {
-        'form': form,
-        'item': categoria,
-        'titulo': 'Categoría',
-        'lista_url': 'categoria_list' # Para el botón "Cancelar"
-    }
-    return render(request, 'gestion/categoria_marca_form_edit.html', context)
+        form = CategoriaForm(instance=item)
+    return render(request, 'gestion/categoria_marca_form_edit.html', {'form': form, 'item': item, 'titulo': 'Categoría', 'lista_url': 'categoria_list'})
 
 @login_required
 def categoria_delete(request, pk):
-    categoria = get_object_or_404(Categoria, pk=pk)
+    item = get_object_or_404(Categoria, pk=pk)
     try:
-        categoria.delete()
-        messages.success(request, f'Categoría "{categoria.nombre}" eliminada.')
-    except Exception as e:
-        messages.error(request, 'No se puede eliminar. Es probable que esté siendo usada por uno o más productos.')
+        item.delete()
+        messages.success(request, 'Categoría eliminada.')
+    except:
+        messages.error(request, 'No se puede eliminar.')
     return redirect('categoria_list')
 
 # ----------------------------------------------
 # CRUD DE MARCAS
 # ----------------------------------------------
-
 @login_required
 def marca_list(request):
     if request.method == 'POST':
         form = MarcaForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Marca creada exitosamente.')
+            messages.success(request, 'Marca creada.')
             return redirect('marca_list')
     else:
         form = MarcaForm()
+    
+    query = request.GET.get('q', '')
+    items = Marca.objects.all().order_by('nombre')
+    if query: items = items.filter(nombre__icontains=query)
 
-    marcas = Marca.objects.all().order_by('nombre')
-    context = {
-        'form': form,
-        'items': marcas, # Usamos 'items' como nombre genérico
-        'titulo': 'Marcas'
-    }
-    return render(request, 'gestion/categoria_marca_list.html', context)
+    return render(request, 'gestion/categoria_marca_list.html', {'form': form, 'items': items, 'titulo': 'Marcas'})
 
 @login_required
 def marca_update(request, pk):
-    marca = get_object_or_404(Marca, pk=pk)
+    item = get_object_or_404(Marca, pk=pk)
     if request.method == 'POST':
-        form = MarcaForm(request.POST, instance=marca)
+        form = MarcaForm(request.POST, instance=item)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Marca actualizada.')
             return redirect('marca_list')
     else:
-        form = MarcaForm(instance=marca)
-
-    context = {
-        'form': form,
-        'item': marca,
-        'titulo': 'Marca',
-        'lista_url': 'marca_list' # Para el botón "Cancelar"
-    }
-    return render(request, 'gestion/categoria_marca_form_edit.html', context)
+        form = MarcaForm(instance=item)
+    return render(request, 'gestion/categoria_marca_form_edit.html', {'form': form, 'item': item, 'titulo': 'Marca', 'lista_url': 'marca_list'})
 
 @login_required
 def marca_delete(request, pk):
-    marca = get_object_or_404(Marca, pk=pk)
+    item = get_object_or_404(Marca, pk=pk)
     try:
-        marca.delete()
-        messages.success(request, f'Marca "{marca.nombre}" eliminada.')
-    except Exception as e:
-        messages.error(request, 'No se puede eliminar. Es probable que esté siendo usada por uno o más productos.')
+        item.delete()
+        messages.success(request, 'Marca eliminada.')
+    except:
+        messages.error(request, 'No se puede eliminar.')
     return redirect('marca_list')
 
 # ----------------------------------------------
-# VISTAS DE EXPORTACIÓN A EXCEL
+# CRUD DE BODEGAS (¡EL QUE FALTABA!)
+# ----------------------------------------------
+@login_required
+def bodega_list(request):
+    if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]:
+        messages.error(request, "Acceso denegado.")
+        return redirect('inicio_gestion')
+
+    if request.method == 'POST':
+        form = BodegaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Bodega creada.')
+            return redirect('bodega_list')
+    else:
+        form = BodegaForm()
+    
+    items = Bodega.objects.all().order_by('nombre')
+    return render(request, 'gestion/categoria_marca_list.html', {'form': form, 'items': items, 'titulo': 'Bodegas'})
+
+@login_required
+def bodega_update(request, pk):
+    if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]: return redirect('inicio_gestion')
+    item = get_object_or_404(Bodega, pk=pk)
+    if request.method == 'POST':
+        form = BodegaForm(request.POST, instance=item)
+        if form.is_valid():
+            form.save()
+            return redirect('bodega_list')
+    else:
+        form = BodegaForm(instance=item)
+    return render(request, 'gestion/categoria_marca_form_edit.html', {'form': form, 'item': item, 'titulo': 'Bodega', 'lista_url': 'bodega_list'})
+
+@login_required
+def bodega_delete(request, pk):
+    if request.user.rol not in [CustomUser.Roles.ROOT, CustomUser.Roles.ADMIN]: return redirect('inicio_gestion')
+    item = get_object_or_404(Bodega, pk=pk)
+    try:
+        item.delete()
+        messages.success(request, 'Bodega eliminada.')
+    except:
+        messages.error(request, 'No se puede eliminar.')
+    return redirect('bodega_list')
+
+
+# ----------------------------------------------
+# INVENTARIO (TRANSACCIONAL)
+# ----------------------------------------------
+@login_required
+def inventario_list(request):
+    if request.method == 'POST':
+        form = MovimientoForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, 'Movimiento registrado.')
+                return redirect('inventario_list')
+            except ValidationError as e:
+                messages.error(request, f"Error: {e.args[0]}")
+        else:
+            messages.error(request, 'Formulario inválido.')
+    else:
+        form = MovimientoForm()
+
+    today = timezone.now().date()
+    kpis = {
+        'movimientos_hoy': MovimientoInventario.objects.filter(fecha__date=today).count(),
+        'stock_total': Producto.objects.aggregate(total=Sum('stock_actual'))['total'] or 0,
+        'productos_unicos': Producto.objects.count()
+    }
+
+    query = request.GET.get('q', '')
+    movimientos = MovimientoInventario.objects.all().select_related('producto', 'proveedor', 'bodega').order_by('-fecha')
+    if query:
+        movimientos = movimientos.filter(Q(producto__sku__icontains=query) | Q(producto__nombre__icontains=query))
+
+    return render(request, 'gestion/inventario_list.html', {'form': form, 'kpis': kpis, 'movimientos': movimientos[:50]})
+
+# ----------------------------------------------
+# EXPORTACIONES A EXCEL (OPTIMIZADO)
 # ----------------------------------------------
 
-# --- PRODUCTOS---
+# Función auxiliar para no repetir código
+def export_base(filename, headers, data_generator):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = filename.capitalize()
+    ws.append(headers)
+    
+    for row in data_generator:
+        ws.append(row)
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="listado_{filename}.xlsx"'
+    wb.save(response)
+    return response
+
 @login_required
 def exportar_productos_excel(request):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Productos"
-    ws.append(['SKU', 'Nombre', 'Categoría', 'Stock', 'Precio Neto', 'Precio c/IVA'])
-    
+    # 1. Recuperar filtro
+    query = request.GET.get('q', '')
     productos = Producto.objects.all().order_by('sku')
+    
+    # 2. Aplicar filtro (Igual que en la lista)
+    if query:
+        productos = productos.filter(Q(nombre__icontains=query) | Q(sku__icontains=query))
+
+    # 3. Generar datos (Incluyendo Categoría legible y Precio con IVA)
+    data = []
     for p in productos:
-        categoria = p.categoria.nombre if p.categoria else "N/A"
-        ws.append([p.sku, p.nombre, categoria, p.stock_actual, p.precio_venta, p.precio_venta_con_iva])
+        cat_nombre = p.categoria.nombre if p.categoria else "Sin Categoría"
+        # Usamos la propiedad .precio_venta_con_iva del modelo
+        data.append([p.sku, p.nombre, cat_nombre, p.stock_actual, p.precio_venta, p.precio_venta_con_iva])
 
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="listado_productos.xlsx"'
-    wb.save(response)
-    return response
+    return export_base('productos', ['SKU', 'Nombre', 'Categoría', 'Stock', 'Precio Neto', 'Precio c/IVA'], data)
 
-# --- PROVEEDORES---
 @login_required
 def exportar_proveedores_excel(request):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Proveedores"
-    ws.append(['RUT/NIF', 'Razón Social', 'Email', 'Teléfono', 'Estado', 'País'])
+    query = request.GET.get('q', '')
+    qs = Proveedor.objects.all().order_by('razon_social')
     
-    proveedores = Proveedor.objects.all().order_by('razon_social')
-    for p in proveedores:
-        ws.append([p.rut_nif, p.razon_social, p.email, p.telefono, p.get_estado_display(), p.pais])
+    if query:
+        qs = qs.filter(Q(razon_social__icontains=query) | Q(rut_nif__icontains=query))
 
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="listado_proveedores.xlsx"'
-    wb.save(response)
-    return response
+    data = ([p.rut_nif, p.razon_social, p.email, p.telefono, p.get_estado_display()] for p in qs)
+    return export_base('proveedores', ['RUT', 'Razón Social', 'Email', 'Teléfono', 'Estado'], data)
 
-# --- INVENTARIO---
 @login_required
 def exportar_inventario_excel(request):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Movimientos"
-    ws.append(['Fecha', 'Tipo', 'SKU', 'Producto', 'Cantidad', 'Proveedor', 'Bodega', 'Doc. Ref.', 'Lote'])
+    query = request.GET.get('q', '')
+    qs = MovimientoInventario.objects.all().order_by('-fecha')
     
-    movimientos = MovimientoInventario.objects.all().order_by('-fecha').select_related('producto', 'proveedor')
-    for m in movimientos:
-        producto_sku = m.producto.sku if m.producto else "N/A"
-        producto_nombre = m.producto.nombre if m.producto else "N/A"
-        proveedor_nombre = m.proveedor.razon_social if m.proveedor else "N/A"
-        
-        ws.append([
-            m.fecha.strftime('%Y-%m-%d %H:%M'), 
-            m.get_tipo_display(), 
-            producto_sku,
-            producto_nombre,
-            m.cantidad, 
-            proveedor_nombre,
-            m.bodega,
-            m.doc_ref,
-            m.lote
-        ])
+    if query:
+        qs = qs.filter(Q(producto__sku__icontains=query) | Q(producto__nombre__icontains=query))
 
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="listado_inventario.xlsx"'
-    wb.save(response)
-    return response
+    # Incluimos Bodega y Tipo legible
+    data = ([m.fecha.strftime('%Y-%m-%d'), m.get_tipo_display(), m.producto.sku, m.cantidad, m.bodega.nombre if m.bodega else ""] for m in qs)
+    return export_base('inventario', ['Fecha', 'Tipo', 'Producto', 'Cantidad', 'Bodega'], data)
 
-# --- USUARIOS---
 @login_required
 def exportar_usuarios_excel(request):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Usuarios"
-    ws.append(['Username', 'Email', 'Nombre', 'Apellido', 'Rol', 'Estado', 'Último Acceso'])
+    query = request.GET.get('q', '')
+    qs = CustomUser.objects.all().order_by('username')
     
-    usuarios = CustomUser.objects.all().order_by('username')
-    for u in usuarios:
-        ws.append([
-            u.username, 
-            u.email, 
-            u.first_name, 
-            u.last_name, 
-            u.get_rol_display(), 
-            u.get_estado_display(),
-            u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else "N/A"
-        ])
+    if query:
+        qs = qs.filter(Q(username__icontains=query) | Q(email__icontains=query))
 
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="listado_usuarios.xlsx"'
-    wb.save(response)
-    return response
+    data = ([u.username, u.email, u.get_rol_display(), u.get_estado_display()] for u in qs)
+    return export_base('usuarios', ['Usuario', 'Email', 'Rol', 'Estado'], data)
 
-# --- CATEGORÍAS---
 @login_required
 def exportar_categorias_excel(request):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Categorías"
-    ws.append(['Nombre'])
+    # Las categorías suelen ser pocas, el filtro es opcional pero útil
+    query = request.GET.get('q', '')
+    qs = Categoria.objects.all().order_by('nombre')
+    if query: qs = qs.filter(nombre__icontains=query)
     
-    items = Categoria.objects.all().order_by('nombre')
-    for item in items:
-        ws.append([item.nombre])
+    data = ([i.nombre] for i in qs)
+    return export_base('categorias', ['Nombre'], data)
 
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="listado_categorias.xlsx"'
-    wb.save(response)
-    return response
-
-# --- MARCAS ---
 @login_required
 def exportar_marcas_excel(request):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Marcas"
-    ws.append(['Nombre'])
+    query = request.GET.get('q', '')
+    qs = Marca.objects.all().order_by('nombre')
+    if query: qs = qs.filter(nombre__icontains=query)
     
-    items = Marca.objects.all().order_by('nombre')
-    for item in items:
-        ws.append([item.nombre])
-
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="listado_marcas.xlsx"'
-    wb.save(response)
-    return response
+    data = ([i.nombre] for i in qs)
+    return export_base('marcas', ['Nombre'], data)

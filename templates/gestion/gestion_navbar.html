@@ -22,6 +22,7 @@
                     <a class="nav-link" href="{% url 'inventario_list' %}">Inventario</a>
                 </li>
                 
+                {% if user.rol == 'ROOT' or user.rol == 'ADMIN' %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         Administración
@@ -29,10 +30,13 @@
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="{% url 'user_list' %}">Usuarios</a></li>
                         <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'bodega_list' %}">Bodegas</a></li>
                         <li><a class="dropdown-item" href="{% url 'categoria_list' %}">Categorías</a></li>
                         <li><a class="dropdown-item" href="{% url 'marca_list' %}">Marcas</a></li>
                     </ul>
                 </li>
+                {% endif %}
+                </ul>
             </ul>
 
             <ul class="navbar-nav ms-auto">

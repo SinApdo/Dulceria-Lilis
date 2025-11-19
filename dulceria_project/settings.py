@@ -122,7 +122,7 @@ TIME_ZONE = 'America/Santiago'
 
 USE_I18N = True
 
-USE_TZ = False
+USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -154,3 +154,5 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Página de login (donde se redirige si se intenta acceder a una vista protegida)
 LOGIN_URL = 'login'
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

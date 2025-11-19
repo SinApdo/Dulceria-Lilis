@@ -102,6 +102,9 @@
                 <a href="{% url 'exportar_inventario_excel' %}" class="btn btn-sm btn-outline-success">Exportar a Excel</a>
             </div>
             <div class="card-body p-0">
+                <div class="mb-3">
+                    <input type="text" id="search-input" class="form-control" placeholder="Buscar por SKU, Producto o Proveedor...">
+                </div>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover mb-0 align-middle">
                         <thead class="table-dark">
@@ -118,7 +121,7 @@
                                 <th>Serie</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="table-body">
                             {% for mov in movimientos %}
                             <tr>
                                 <td>{{ mov.fecha|date:"Y-m-d H:i" }}</td>
@@ -150,4 +153,29 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const tableRows = document.getElementById('table-body').getElementsByTagName('tr');
+
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase();
+        for (let i = 0; i < tableRows.length; i++) {
+            const row = tableRows[i];
+            // Col 2: SKU, Col 3: Producto, Col 5: Proveedor
+            const sku = row.cells[2].textContent.toLowerCase();
+            const prod = row.cells[3].textContent.toLowerCase();
+            const prov = row.cells[5].textContent.toLowerCase();
+            
+            if (sku.includes(filter) || prod.includes(filter) || prov.includes(filter)) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

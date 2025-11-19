@@ -30,6 +30,9 @@
             </div>
             
             <div class="card-body p-0">
+                <div class="mb-3">
+                    <input type="text" id="search-input" class="form-control" placeholder="Buscar...">
+                </div>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover mb-0 align-middle">
                         <thead class="table-dark">
@@ -38,7 +41,7 @@
                                 <th>Acciones</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="table-body">
                             {% for item in items %}
                             <tr>
                                 <td>{{ item.nombre }}</td>
@@ -74,4 +77,27 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const tableRows = document.getElementById('table-body').getElementsByTagName('tr');
+
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase();
+        for (let i = 0; i < tableRows.length; i++) {
+            const row = tableRows[i];
+            // Col 0: Nombre
+            const text1 = row.cells[0].textContent.toLowerCase();
+            
+            if (text1.includes(filter)) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    });
+});
+</script>
 {% endblock %}
